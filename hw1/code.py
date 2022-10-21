@@ -1,101 +1,89 @@
-from shutil import ExecError
-from xml.dom.pulldom import END_ELEMENT
 import cv2
-from cv2 import CV_16S
 import numpy as np
 import matplotlib.pyplot as plt
-if __name__ == '__main__':
-    img = cv2.imread('kid blurred-noisy.tif', cv2.IMREAD_GRAYSCALE) #    fruit blurred-noisy.tif index.jpeg
+from PIL import Image
 
-    # (b): Laplacian
-    lap = cv2.Laplacian(img, cv2.CV_32F, ksize=1)
-    max = np.amax(lap)
-    min = np.amin(lap)
-    print(max)
-    print(min)
-    copy = lap.copy()
-    rows, cols = copy.shape
-    print(rows)
-    print(cols)
-    for i in range(rows):
+def save_img(path, name, img):
+    temp = Image.fromarray(img).convert('RGB')
+    temp.save(path + name + '.tif', dpi = (200, 200))
+
+def handel_histogram(path, type, img):
+    file = open(path + type + '_value.txt', 'w+')
+    for i in range(256):
+        file.write(str(np.count_nonzero(img == i)) + '\n')
+    plt.hist(img.ravel(), bins=256)
+    plt.savefig(path + type + '_hist.tif')
+    plt.clf()
+
+def contrast_stretching(img, rows, cols):
+    max = np.amax(img)
+    min = np.amin(img)
+    for i in range(rows):   
         for j in range(cols):
-            copy[i, j] = (copy[i, j]+128)
-            # print(copy[i, j])
-    
-    cv2.imwrite('Result/laplacian.jpg', copy)
+            img[i, j] = ((img[i, j] - min) / (max - min)) * 256
+    return img
 
-    # (c): Laplacian-sharpened
-    temp1 = np.asarray(img, np.float64)
-    temp2 = np.asarray(lap, np.float64)
-    sharpended_img = cv2.add(temp1, temp2)
+if __name__ == '__main__':
+    for i in ['kid', 'fruit']:
+        target = 'kid blurred-noisy.tif'
+        if i == 'fruit':
+            target = 'fruit blurred-noisy.tif'
+        img = cv2.imread(target, cv2.IMREAD_GRAYSCALE) # fruit blurred-noisy.tif index.jpeg
+        rows, cols = img.shape
+        path = 'Result/' + i + '/'
 
-    cv2.imwrite('Result/laplacian-sharpened.jpg', sharpended_img)
-    exit()
-    # cv2.imshow('My image', sharpended_img)
-    # cv2.waitKey(0)
+        # (a): Original
+        save_img(path, '1.original', img)
 
-    # (d): Sobel gradient
-    sobelx = cv2.Sobel(img, cv2.CV_64F, 1, 0)
-    sobely = cv2.Sobel(img, cv2.CV_64F, 0, 1)
-    sobel_mix = cv2.add(sobelx, sobely)
+        # (b): Laplacian
+        lap = cv2.Laplacian(img, cv2.CV_32F, ksize = 11)
+        copy = lap.copy()
+        copy = np.abs(copy)
+        copy = contrast_stretching(copy, rows, cols)
+        save_img(path, '2.laplacian', copy)
 
-    cv2.imshow('My image', sobel_mix)
-    cv2.waitKey(0)
+        # (c): Laplacian-sharpened
+        temp1 = np.asarray(img, np.float64)
+        temp2 = np.asarray(lap, np.float64)
+        sharpended_img = cv2.add(temp1, temp2)
+        copy = sharpended_img.copy()
+        copy = np.abs(copy)
+        max = np.amax(copy)
+        min = np.amin(copy)
+        copy = contrast_stretching(copy, rows, cols)
+        save_img(path, '3.laplacian-sharpened', copy)
 
-    # (e): Smoothed gradient
-    kernel = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]])
-    smoothed_img = cv2.filter2D(sobel_mix, ddepth=cv2.CV_64F, kernel=kernel)
+        # (d): Sobel gradient
+        sobelx = cv2.Sobel(img, cv2.CV_64F, 1, 0)
+        sobely = cv2.Sobel(img, cv2.CV_64F, 0, 1)
+        sobel_mix = cv2.add(sobelx, sobely)
+        save_img(path, '4.sobel', sobel_mix)
+        
 
-    cv2.imshow('My image', smoothed_img)
-    cv2.waitKey(0)
+        # (e): Smoothed gradient
+        kernel = np.ones((5, 5), np.float32) / 25
+        smoothed_img = cv2.filter2D(sobel_mix, -1, kernel=kernel)
+        save_img(path, '5.smooth', smoothed_img)
 
-    # (f): (e)x(b)
-    multiply_result = cv2.multiply(lap, smoothed_img)
-    cv2.imshow('My image', multiply_result)
-    cv2.waitKey(0)
+        # (f): (e)x(b)
+        temp1 = np.asarray(lap, np.float64)
+        temp2 = np.asarray(smoothed_img, np.float64)
+        multiply_result = cv2.multiply(temp1, temp2)
+        save_img(path, '6.multiply', multiply_result)
 
+        # (g): (a)+(f)
+        temp1 = np.asarray(img, np.float64)
+        temp2 = np.asarray(multiply_result, np.float64)
+        add_result = cv2.addWeighted(temp1, 0.7, temp2, 0.3, 0)
+        save_img(path, '7.add', add_result)
 
-    # (g): (a)+(f)
-    add_result = img + multiply_result
+        # (h): Power-law transformation
+        gamma = 0.7
+        final_img = np.array(255*(temp1/255)**gamma, dtype='uint8')
+        save_img(path, '8.final', final_img)
 
-    cv2.imshow('My image', add_result)
-    cv2.waitKey(0)
+        # Original histogram
+        handel_histogram(path, '9.original', img)
 
-    # (h): Power-law transformation
-    gamma = 0.5
-    final_img = np.array(255*(img/255)**0.4, dtype='uint8')
-
-    cv2.imshow('My image', final_img)
-    cv2.waitKey(0)
-
-
-
-
-
-    # rows, cols = lap.shape
-    # print(rows)
-    # print(cols)
-    # for i in range(rows):
-    #     for j in range(cols):
-    #         level = lap[i, j]
-    #         # lap[i, j] = lap[i, j] + 128
-    #         if level > 255:
-    #             lap[i, j] = 255
-    #         elif level < 0:
-    #             lap[i, j] = -lap[i, j]
-    #             if lap[i, j] > 255:
-    #                 lap[i, j] = 255
-
-    # lap2 = cv2.Laplacian(img, cv2.CV_64F, ksize=5)
-    # kernel = np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]])
-    # lap = cv2.filter2D(img, ddepth=cv2.CV_64F, kernel=kernel)
-
-    # dst = cv2.add(original_img, lap)
-    # dst = cv2.convertScaleAbs(lap)
-
-
-    # cv2.imwrite("Preview.jpg", lap)
-    cv2.destroyAllWindows()
-
-    # plt.imshow(lap, cmap='gray')
-    # plt.show()
+        # Output histogram
+        handel_histogram(path, '10.output', final_img)
