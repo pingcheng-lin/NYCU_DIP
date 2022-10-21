@@ -61,8 +61,8 @@ if __name__ == '__main__':
         # (e): Smoothed gradient
         kernel = np.ones((5, 5), np.float32) / 25
         smoothed_img = cv2.filter2D(sobel_mix, -1, kernel=kernel)
-        copy = contrast_stretching(smoothed_img, rows, cols)
-        save_img(path, '5.smooth', copy)
+        smoothed_img = contrast_stretching(smoothed_img, rows, cols)
+        save_img(path, '5.smooth', smoothed_img)
 
         # (f): (e)x(b)
         temp1 = np.asarray(lap_copy, np.float64)
@@ -73,14 +73,12 @@ if __name__ == '__main__':
 
         # (g): (a)+(f)
         temp1 = np.asarray(img, np.float64)
-        # temp2 = np.asarray(multiply_result, np.float64)
         add_result = cv2.addWeighted(temp1, 0.6, temp2, 0.4, 0)
         add_result = contrast_stretching(add_result, rows, cols)
         save_img(path, '7.add', add_result)
 
         # (h): Power-law transformation
         gamma = 0.8
-        # add_result = np.asarray(add_result, np.float64)
         final_img = np.array(255*(np.abs(add_result)/255)**gamma, dtype='uint8')
         final_img = contrast_stretching(final_img, rows, cols)
         save_img(path, '8.final', final_img)
