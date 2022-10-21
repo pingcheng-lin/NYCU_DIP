@@ -20,7 +20,7 @@ def contrast_stretching(img, rows, cols):
     min = np.amin(img)
     for i in range(rows):   
         for j in range(cols):
-            img[i, j] = ((img[i, j] - min) / (max - min)) * 256
+            img[i, j] = ((img[i, j] - min) / (max - min)) * 255
     return img
 
 if __name__ == '__main__':
@@ -36,50 +36,53 @@ if __name__ == '__main__':
         save_img(path, '1.original', img)
 
         # (b): Laplacian
-        lap = cv2.Laplacian(img, cv2.CV_32F, ksize = 11)
-        copy = lap.copy()
-        copy = np.abs(copy)
-        copy = contrast_stretching(copy, rows, cols)
-        save_img(path, '2.laplacian', copy)
+        lap = cv2.Laplacian(img, cv2.CV_32F, ksize = 9)
+        lap_copy = lap.copy()
+        lap_copy = np.abs(lap_copy)
+        lap_copy = contrast_stretching(lap_copy, rows, cols)
+        save_img(path, '2.laplacian', lap_copy)
 
         # (c): Laplacian-sharpened
         temp1 = np.asarray(img, np.float64)
-        temp2 = np.asarray(lap, np.float64)
+        temp2 = np.asarray(lap_copy, np.float64)
         sharpended_img = cv2.add(temp1, temp2)
         copy = sharpended_img.copy()
         copy = np.abs(copy)
-        max = np.amax(copy)
-        min = np.amin(copy)
         copy = contrast_stretching(copy, rows, cols)
         save_img(path, '3.laplacian-sharpened', copy)
 
         # (d): Sobel gradient
-        sobelx = cv2.Sobel(img, cv2.CV_64F, 1, 0)
-        sobely = cv2.Sobel(img, cv2.CV_64F, 0, 1)
-        sobel_mix = cv2.add(sobelx, sobely)
+        sobelx = cv2.Sobel(img, cv2.CV_32F, 1, 0)
+        sobely = cv2.Sobel(img, cv2.CV_32F, 0, 1)
+        sobel_mix = cv2.add(np.abs(sobelx), np.abs(sobely))
+        sobel_mix = contrast_stretching(sobel_mix, rows, cols)
         save_img(path, '4.sobel', sobel_mix)
-        
 
         # (e): Smoothed gradient
         kernel = np.ones((5, 5), np.float32) / 25
         smoothed_img = cv2.filter2D(sobel_mix, -1, kernel=kernel)
-        save_img(path, '5.smooth', smoothed_img)
+        copy = contrast_stretching(smoothed_img, rows, cols)
+        save_img(path, '5.smooth', copy)
 
         # (f): (e)x(b)
-        temp1 = np.asarray(lap, np.float64)
+        temp1 = np.asarray(lap_copy, np.float64)
         temp2 = np.asarray(smoothed_img, np.float64)
         multiply_result = cv2.multiply(temp1, temp2)
+        multiply_result = contrast_stretching(multiply_result, rows, cols)
         save_img(path, '6.multiply', multiply_result)
 
         # (g): (a)+(f)
         temp1 = np.asarray(img, np.float64)
-        temp2 = np.asarray(multiply_result, np.float64)
-        add_result = cv2.addWeighted(temp1, 0.7, temp2, 0.3, 0)
+        # temp2 = np.asarray(multiply_result, np.float64)
+        add_result = cv2.addWeighted(temp1, 0.6, temp2, 0.4, 0)
+        add_result = contrast_stretching(add_result, rows, cols)
         save_img(path, '7.add', add_result)
 
         # (h): Power-law transformation
-        gamma = 0.7
-        final_img = np.array(255*(temp1/255)**gamma, dtype='uint8')
+        gamma = 0.8
+        # add_result = np.asarray(add_result, np.float64)
+        final_img = np.array(255*(np.abs(add_result)/255)**gamma, dtype='uint8')
+        final_img = contrast_stretching(final_img, rows, cols)
         save_img(path, '8.final', final_img)
 
         # Original histogram
