@@ -126,9 +126,17 @@ if __name__ == '__main__':
                         [-1, 9,-1],
                         [-1, -1, -1]])
     sharpended_rgb = cv2.filter2D(src=img, ddepth=-1, kernel=kernel)
-    sharpended_hsi = cv2.filter2D(src=hsi, ddepth=-1, kernel=kernel)
-    sharpended_hsi = hsi_to_rgb(sharpended_hsi)
     save_img(path, 'sharpened_rgb', sharpended_rgb)
+
+    H, S, I = cv2.split(hsi)
+    sharpended_hsi = hsi.copy()
+    sharpended_I = cv2.filter2D(src=I, ddepth=-1, kernel=kernel)
+    for i in range(int(hsi.shape[0])):
+        for j in range(int(hsi.shape[1])):
+            sharpended_hsi[i, j, 0] = H[i, j]
+            sharpended_hsi[i, j, 1] = S[i, j]
+            sharpended_hsi[i, j, 2] = sharpended_I[i, j]
+    sharpended_hsi = hsi_to_rgb(sharpended_hsi)
     save_img(path, 'sharpended_hsi', sharpended_hsi)
 
     # (c):
